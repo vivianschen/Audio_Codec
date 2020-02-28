@@ -63,50 +63,82 @@ Logic:
         
     """
 
-    # water-filling  algorithm
+    # # water-filling  algorithm
+    # bits = np.zeros(nBands, dtype=int)
+
+    # if len(SMR) ==0:
+    #     return bits
+
+    # not_filled = np.ones(nBands, dtype=bool)
+
+    # # while there are still open bands
+    # while not_filled.any() and bitBudget > 0:
+    #     # in nBands, get index of max SMR (i.e. my 5th band has greatest SMR)
+    #     ind_max = np.arange(nBands)[not_filled][np.argmax((SMR - bits*6)[not_filled])]
+    #     # get number of lines in this index. If bit budget minus this # lines >=0: 
+    #     if (bitBudget - nLines[ind_max]) >= 0:
+    #         bits[ind_max] += 1
+    #         bitBudget -= nLines[ind_max]
+    #         # if bits allocated to this index >= maximum, set index to filled 
+    #         if bits[ind_max] >= maxMantBits:
+    #             not_filled[ind_max] = False
+    #     #if bit budget minus this # lines goes to negative, set index to filled
+    #     else:
+    #         not_filled[ind_max] = False
+
+    # # go back through and reallocate single bits or overflowing bits
+    # not_filled = bits < maxMantBits
+    # while (bits==1).any() and not_filled.any():
+    #     # get the single bit in highest critical band, set back to 0
+    #     i = np.max(np.argwhere(bits==1))
+    #     bits[i] = 0
+    #     bitBudget += nLines[i]
+
+    #     # same thing...
+    #     ind_max = np.arange(nBands)[not_filled][np.argmax(((SMR)-bits*6)[not_filled])]
+    #     if (bitBudget - nLines[ind_max]) >= 0:
+    #         bits[ind_max] += 1
+    #         bitBudget -= nLines[ind_max]
+    #     # set this index to filled
+    #     not_filled[ind_max] = False
+
+    # return bits
+
     bits = np.zeros(nBands, dtype=int)
 
     if len(SMR) ==0:
         return bits
 
-    not_filled = np.ones(nBands, dtype=bool)
-
-    # while there are still open bands
-    while not_filled.any() and bitBudget > 0:
-        # in nBands, get index of max SMR (i.e. my 5th band has greatest SMR)
-        ind_max = np.arange(nBands)[not_filled][np.argmax((SMR - bits*6)[not_filled])]
-        # get number of lines in this index. If bit budget minus this # lines >=0: 
-        if (bitBudget - nLines[ind_max]) >= 0:
+    # first pass allocation
+    while(bitBudget >= np.min(nLines)):  
+        #index of largest SMR value
+        ind_max = np.argmax(SMR)  
+        if(bitBudget >= nLines[ind_max]):
             bits[ind_max] += 1
             bitBudget -= nLines[ind_max]
-            # if bits allocated to this index >= maximum, set index to filled 
-            if bits[ind_max] >= maxMantBits:
-                not_filled[ind_max] = False
-        #if bit budget minus this # lines goes to negative, set index to filled
-        else:
-            not_filled[ind_max] = False
-
-    # go back through and reallocate single bits or overflowing bits
-    not_filled = bits < maxMantBits
-    while (bits==1).any() and not_filled.any():
-        # get the single bit in highest critical band, set back to 0
-        i = np.max(np.argwhere(bits==1))
-        bits[i] = 0
-        bitBudget += nLines[i]
-
-        # same thing...
-        ind_max = np.arange(nBands)[not_filled][np.argmax(((SMR)-bits*6)[not_filled])]
-        if (bitBudget - nLines[ind_max]) >= 0:
-            bits[ind_max] += 1
-            bitBudget -= nLines[ind_max]
-        # set this index to filled
-        not_filled[ind_max] = False
-
-    #bits = np.minimum(bits, np.ones_like(bits)*maxMantBits)
-    #print(bits)
-    return bits
-
+        SMR[ind_max] -= 6.
+        
+    #get rid of all ones in bits and reallocate
+    single = np.where(bits == 1)
+    bits[single] -= 1
+    bitBudget += np.sum(nLines[single])
     
+    #if bits per band > maxMantBits, make bits = maxMantBits and add to extras
+    too_many = np.where(bits > maxMantBits)
+    extra_bits = bits[too_many] - maxMantBits
+    bits[too_many] -= extra_bits
+    bitBudget += np.sum(nLines[too_many]*extra_bits)
+    
+    # reallocate
+    while(bitBudget >= np.min(nLines)):
+        #index of largest SMR value
+        ind_max = np.argmax(SMR)
+        if(bitBudget >= nLines[ind_max] and bits[ind_max] > 0 and bits[ind_max] < maxMantBits):
+            bits[ind_max] += 1
+            bitBudget -= nLines[ind_max]
+        SMR[ind_max] -= 6.
+        
+    return bits
 
 #-----------------------------------------------------------------------------
 
