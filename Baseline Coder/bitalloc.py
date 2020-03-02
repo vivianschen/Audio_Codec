@@ -32,7 +32,7 @@ def BitAllocConstNMR(bitBudget, maxMantBits, nBands, nLines, SMR):
     return np.array([7, 12, 12, 12, 10,  9,  9, 10,  7,  7,  9, 10, 11, 10, 10, 10,  6,  8, 11,  3,  3, 10,  2,  1, 0])
 
 # Question 1.c)
-def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
+def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR, bitReservoir):
     """
     Allocates bits to scale factor bands so as to flatten the NMR across the spectrum
 
@@ -60,39 +60,68 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
     
     bits = np.zeros(nBands, dtype=int)
 
+
     if len(SMR) ==0:
         return bits
+    
+    allocateBits = True;
+    bits_used = 0;
 
     # first pass allocation
-    while(bitBudget >= np.min(nLines)):  
-        #index of largest SMR value
-        ind_max = np.argmax(SMR)  
-        if(bitBudget >= nLines[ind_max]):
-            bits[ind_max] += 1
-            bitBudget -= nLines[ind_max]
-        SMR[ind_max] -= 6.
+    while(allocateBits):
+        if (bitBudget >= np.min(nLines)): # while there are enough bits to allocate 
+            ind_max = np.argmax(SMR)  #index of largest SMR value
+            if(bitBudget >= nLines[ind_max]): # if have enough bits for current SMR band
+                if(SMR[ind_max] >= 0): # only allocate bits if SMR is positive or zero
+                    bits[ind_max] += 1 # allocate a bit in the given indx
+                    bitBudget -= nLines[ind_max] # -1 in our bit budget
+                    bits_used += 1*nLines[ind_max]
+            SMR[ind_max] -= 6.02 # adjust SMR value
+            
+        if max(SMR) < 0 or bitBudget < np.min(nLines): # break loop if all SMR values are negative or if run out of bits
+            allocateBits = False
+   
         
     #get rid of all ones in bits and reallocate
-    single = np.where(bits == 1)
+    single = np.where(bits == 1) # boolean array
     bits[single] -= 1
     bitBudget += np.sum(nLines[single])
     
     #if bits per band > maxMantBits, make bits = maxMantBits and add to extras
-    too_many = np.where(bits > maxMantBits)
+    too_many = np.where(bits > maxMantBits) # boolean array
     extra_bits = bits[too_many] - maxMantBits
     bits[too_many] -= extra_bits
     bitBudget += np.sum(nLines[too_many]*extra_bits)
     
     # reallocate
-    while(bitBudget >= np.min(nLines)):
-        #index of largest SMR value
-        ind_max = np.argmax(SMR)
-        if(bitBudget >= nLines[ind_max] and bits[ind_max] > 0 and bits[ind_max] < maxMantBits):
-            bits[ind_max] += 1
-            bitBudget -= nLines[ind_max]
-        SMR[ind_max] -= 6.
+    
+    allocateBits = True
+    while(allocateBits):
+        if(bitBudget >= np.min(nLines)):
+            ind_max = np.argmax(SMR)
+            if(bitBudget >= nLines[ind_max] and bits[ind_max] > 0 and bits[ind_max] < maxMantBits):
+                if(SMR[ind_max] >= 0): 
+                    bits[ind_max] += 1
+                    bitBudget -= nLines[ind_max]
+                    bits_used += 1*nLines[ind_max]
+            SMR[ind_max] -= 6.02
+            
+        if max(SMR) < 0 or bitBudget < np.min(nLines): # break loop if all SMR values are negative or if run out of bits
+            allocateBits = False
+            
+    bitReservoir = bitBudget;
+  
+    
+#     print("bit budget", bitBudget);  
+#     print("bits used", bits_used)
+
+    if bits_used > 1000:
+        print("bits used",bits_used)
+
+
+    
         
-    return bits
+    return bits, bitReservoir
 
    
 
@@ -102,6 +131,7 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
 if __name__ == "__main__":
 
     pass # TO REPLACE WITH YOUR CODE
+
 
 
 

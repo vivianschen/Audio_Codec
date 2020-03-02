@@ -55,13 +55,13 @@ def Encode(data,codingParams):
 
     # loop over channels and separately encode each one
     for iCh in range(codingParams.nChannels):
-        (s,b,m,o) = EncodeSingleChannel(data[iCh],codingParams)
+        (s,b,m,o,codingParams.bitReservoir) = EncodeSingleChannel(data[iCh],codingParams)
         scaleFactor.append(s)
         bitAlloc.append(b)
         mantissa.append(m)
         overallScaleFactor.append(o)
     # return results bundled over channels
-    return (scaleFactor,bitAlloc,mantissa,overallScaleFactor)
+    return (scaleFactor,bitAlloc,mantissa,overallScaleFactor,codingParams.bitReservoir)
 
 
 def EncodeSingleChannel(data,codingParams):
@@ -81,6 +81,10 @@ def EncodeSingleChannel(data,codingParams):
     bitBudget = codingParams.targetBitsPerSample * halfN  # this is overall target bit rate
     bitBudget -=  nScaleBits*(sfBands.nBands +1)  # less scale factor bits (including overall scale factor)
     bitBudget -= codingParams.nMantSizeBits*sfBands.nBands  # less mantissa bit allocation bits
+    
+    bitBudget += codingParams.bitReservoir # add bit reservoir bits to bit budget
+    
+    print("init bitBudget", bitBudget);
 
 
     # window data for side chain FFT and also window and compute MDCT
@@ -98,7 +102,7 @@ def EncodeSingleChannel(data,codingParams):
     SMRs = CalcSMRs(timeSamples, mdctLines, overallScale, codingParams.sampleRate, sfBands)
     
     # perform bit allocation using SMR results
-    bitAlloc = BitAlloc(bitBudget, maxMantBits, sfBands.nBands, sfBands.nLines, SMRs)
+    bitAlloc, codingParams.bitReservoir = BitAlloc(bitBudget, maxMantBits, sfBands.nBands, sfBands.nLines, SMRs, codingParams.bitReservoir)
 
     # given the bit allocations, quantize the mdct lines in each band
     scaleFactor = np.empty(sfBands.nBands,dtype=np.int32)
@@ -119,7 +123,7 @@ def EncodeSingleChannel(data,codingParams):
     # end of loop over scale factor bands
 
     # return results
-    return (scaleFactor, bitAlloc, mantissa, overallScale)
+    return (scaleFactor, bitAlloc, mantissa, overallScale, codingParams.bitReservoir)
 
 
 
