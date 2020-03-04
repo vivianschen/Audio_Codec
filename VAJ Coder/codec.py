@@ -84,7 +84,7 @@ def EncodeSingleChannel(data,codingParams):
     
     bitBudget += codingParams.bitReservoir # add bit reservoir bits to bit budget
     
-    print("init bitBudget", bitBudget);
+#     print("init bitBudget", bitBudget);
 
 
     # window data for side chain FFT and also window and compute MDCT

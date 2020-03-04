@@ -64,21 +64,23 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR, bitReservoir):
     if len(SMR) ==0:
         return bits
     
-    allocateBits = True;
-    bits_used = 0;
+    allocateBits = True
+    bits_used = 0
+    threshold = -12 
+    maxBitBudget = 10000
 
     # first pass allocation
     while(allocateBits):
         if (bitBudget >= np.min(nLines)): # while there are enough bits to allocate 
             ind_max = np.argmax(SMR)  #index of largest SMR value
             if(bitBudget >= nLines[ind_max]): # if have enough bits for current SMR band
-                if(SMR[ind_max] >= 0): # only allocate bits if SMR is positive or zero
+                if(SMR[ind_max] >= threshold): # only allocate bits if SMR is greater than threshold
                     bits[ind_max] += 1 # allocate a bit in the given indx
                     bitBudget -= nLines[ind_max] # -1 in our bit budget
                     bits_used += 1*nLines[ind_max]
             SMR[ind_max] -= 6.02 # adjust SMR value
             
-        if max(SMR) < 0 or bitBudget < np.min(nLines): # break loop if all SMR values are negative or if run out of bits
+        if max(SMR) < threshold or bitBudget < np.min(nLines): # break loop if all SMR values are negative or if run out of bits
             allocateBits = False
    
         
@@ -93,34 +95,35 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR, bitReservoir):
     bits[too_many] -= extra_bits
     bitBudget += np.sum(nLines[too_many]*extra_bits)
     
-    # reallocate
-    
+    #reallocate
     allocateBits = True
     while(allocateBits):
         if(bitBudget >= np.min(nLines)):
             ind_max = np.argmax(SMR)
             if(bitBudget >= nLines[ind_max] and bits[ind_max] > 0 and bits[ind_max] < maxMantBits):
-                if(SMR[ind_max] >= 0): 
+                if(SMR[ind_max] >= threshold): 
                     bits[ind_max] += 1
                     bitBudget -= nLines[ind_max]
                     bits_used += 1*nLines[ind_max]
+                if(bitBudget >= maxBitBudget):
+                    bits[ind_max] += 1
+                    bitBudget -= nLines[ind_max]
+                    bits_used += 1*nLines[ind_max]
+                
             SMR[ind_max] -= 6.02
             
-        if max(SMR) < 0 or bitBudget < np.min(nLines): # break loop if all SMR values are negative or if run out of bits
-            allocateBits = False
-            
+        if max(SMR) < threshold or bitBudget < np.min(nLines): # break loop if all SMR values are negative or if run out bits
+            allocateBits = False     
+   
+    
     bitReservoir = bitBudget;
   
+     
+#     if bits_used > 1281:
+#         print("bits used", bits_used)
+#         print("bit budget - after", bitBudget); 
     
-#     print("bit budget", bitBudget);  
-#     print("bits used", bits_used)
-
-    if bits_used > 1000:
-        print("bits used",bits_used)
-
-
-    
-        
+      
     return bits, bitReservoir
 
    

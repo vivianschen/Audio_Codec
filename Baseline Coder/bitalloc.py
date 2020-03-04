@@ -87,7 +87,7 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR):
         
         # reallocate 
         ind_max = np.argmax(SMR) #index of largest SMR value
-        if(bitBudget >= nLines[ind_max]): # if have enough bits for current SMR band
+        if (bitBudget >= nLines[ind_max] and bits[ind_max] > 0 and bits[ind_max] < maxMantBits):
             bits[ind_max] += 1 # allocate a bit in the given indx
             bitBudget -= nLines[ind_max] # -1 in our bit budget
         SMR[ind_max] -= 6.02 # adjust SMR value
