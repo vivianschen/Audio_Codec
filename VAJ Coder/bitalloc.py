@@ -126,6 +126,7 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR, bitReservoir):
       
     return bits, bitReservoir
 
+
    
 
 #-----------------------------------------------------------------------------
