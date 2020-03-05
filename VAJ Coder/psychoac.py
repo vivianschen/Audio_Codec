@@ -61,7 +61,7 @@ class Masker:
         self.spl = SPL
         self.isTonal = isTonal
         if self.isTonal:
-            self.drop = 16
+            self.drop = 25 # 16
         else:
             self.drop = 6
 
