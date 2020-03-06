@@ -6,7 +6,7 @@ from psychoac import *
 def MidSideCorrelation(dataLeft, dataRight, codingParams):
 
     # window data and comput data_fft
-    
+        
     # LEFT
     windLeft = HanningWindow(dataLeft)
     dataLeft_fft = np.fft.fft(windLeft)
