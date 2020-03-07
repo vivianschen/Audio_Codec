@@ -67,28 +67,71 @@ def Encode(data,codingParams):
             mantissa.append(m)
             overallScaleFactor.append(o)
         
-#         print("not using MS")
+            # print("not using MS")
         
     else:
         
-#         print("using MS")
+        #  print("using MS")
+        
+        halfN = codingParams.nMDCTLines
+
+        # window data and compute MDCT for left and right channels
+        timeSamplesLeft = data[0]
+        mdctTimeSamplesLeft = SineWindow(data[0])
+        mdctLinesLeft = MDCT(mdctTimeSamplesLeft, halfN, halfN)[:halfN]
+        
+        timeSamplesRight = data[1]
+        mdctTimeSamplesRight = SineWindow(data[1])
+        mdctLinesRight = MDCT(mdctTimeSamplesRight, halfN, halfN)[:halfN]
+
+        
+        # compute MDCT and time domain mid and side channels 
+        mdctLinesMid = (mdctLinesLeft + mdctLinesRight)/np.sqrt(2) 
+        timeSamplesMid = (timeSamplesLeft + timeSamplesRight)/np.sqrt(2) 
+
+        mdctLinesSide = (mdctLinesLeft - mdctLinesRight)/np.sqrt(2) 
+        timeSamplesSide = (timeSamplesLeft - timeSamplesRight)/np.sqrt(2) 
+
+
+        # compute overall scale factor for this block and boost mdctLines using it
+        maxLineMid = np.max( np.abs(mdctLinesMid) )
+        overallScaleMid = ScaleFactor(maxLineMid,codingParams.nScaleBits)  #leading zeroes don't depend on nMantBits
+        mdctLinesMid *= (1<<overallScaleMid)
+
+        maxLineSide = np.max( np.abs(mdctLinesSide) )
+        overallScaleSide = ScaleFactor(maxLineSide,codingParams.nScaleBits)  #leading zeroes don't depend on nMantBits
+        mdctLinesSide *= (1<<overallScaleSide)
+
+        
+        # compute SMRs for mid and side channels
+        SMRs_Mid = CalcSMRs(timeSamplesMid, mdctLinesMid, overallScaleMid, codingParams.sampleRate, codingParams.sfBands)
+        SMRs_Side = CalcSMRs(timeSamplesSide, mdctLinesSide, overallScaleSide, codingParams.sampleRate, codingParams.sfBands)
+
+        # check which SMR is larger (mid or side) for each band and subtract 6 dB 
+        for i in range(len(SMRs_Mid)):
+            
+            if SMRs_Mid[i] > SMRs_Side[i]:
+                SMRs_Mid[i] -= 6.02
+            else:
+                SMRs_Side[i] -= 6.02
+            
 
         # encode mid channel
-        (s,b,m,o,codingParams.bitReservoir) = EncodeMidSideChannel(data[0], data[1], 0, codingParams)
+        (s,b,m,o,codingParams.bitReservoir) = EncodeMidSideChannel(data[0], data[1], 0, mdctLinesMid, SMRs_Mid, overallScaleMid, codingParams)
         scaleFactor.append(s)
         bitAlloc.append(b)
         mantissa.append(m)
         overallScaleFactor.append(o)
         
         # encode side channel
-        (s,b,m,o,codingParams.bitReservoir) = EncodeMidSideChannel(data[0], data[1], 1, codingParams)
+        (s,b,m,o,codingParams.bitReservoir) = EncodeMidSideChannel(data[0], data[1], 1, mdctLinesSide, SMRs_Side, overallScaleSide, codingParams)
         scaleFactor.append(s)
         bitAlloc.append(b)
         mantissa.append(m)
         overallScaleFactor.append(o)
    
     # return results bundled over channels
-    return (scaleFactor,bitAlloc,mantissa,overallScaleFactor,codingParams.bitReservoir)
+    return (scaleFactor,bitAlloc,mantissa,overallScaleFactor,codingParams.bitReservoir, codingParams.use_MS)
 
 
 def EncodeSingleChannel(data,codingParams):
@@ -152,7 +195,7 @@ def EncodeSingleChannel(data,codingParams):
     # return results
     return (scaleFactor, bitAlloc, mantissa, overallScale, codingParams.bitReservoir)
 
-def EncodeMidSideChannel(dataLeft, dataRight, midOrSide, codingParams):
+def EncodeMidSideChannel(dataLeft, dataRight, midOrSide, mdctLines, SMRs, overallScale, codingParams):
 
     # prepare various constants
     halfN = codingParams.nMDCTLines
@@ -168,38 +211,10 @@ def EncodeMidSideChannel(dataLeft, dataRight, midOrSide, codingParams):
     bitBudget = codingParams.targetBitsPerSample * halfN  # this is overall target bit rate
     bitBudget -=  nScaleBits*(sfBands.nBands +1)  # less scale factor bits (including overall scale factor)
     bitBudget -= codingParams.nMantSizeBits*sfBands.nBands  # less mantissa bit allocation bits
+    bitBudget -= 1 # less the MS flag bit
     
     bitBudget += codingParams.bitReservoir # add bit reservoir bits to bit budget
 
-
-    # window data for side chain FFT and also window and compute MDCT
-    timeSamplesLeft = dataLeft
-    mdctTimeSamplesLeft = SineWindow(dataLeft)
-    mdctLinesLeft = MDCT(mdctTimeSamplesLeft, halfN, halfN)[:halfN]
-    
-    timeSamplesRight = dataRight
-    mdctTimeSamplesRight = SineWindow(dataRight)
-    mdctLinesRight = MDCT(mdctTimeSamplesRight, halfN, halfN)[:halfN]
-    
-    # encode mid
-    if midOrSide == 0:
-        mdctLinesMS = (mdctLinesLeft + mdctLinesRight)/np.sqrt(2) # calculating MDCT Mid
-        timeSamplesMS = (timeSamplesLeft + timeSamplesRight)/np.sqrt(2) # calculating time domain Mid
-    # encode side
-    else:
-        mdctLinesMS = (mdctLinesLeft - mdctLinesRight)/np.sqrt(2) # calculating MDCT Side
-        timeSamplesMS = (timeSamplesLeft - timeSamplesRight)/np.sqrt(2) # calculating time domain Side
-        
-    
-
-    # compute overall scale factor for this block and boost mdctLines using it
-    maxLine = np.max( np.abs(mdctLinesMS) )
-    overallScale = ScaleFactor(maxLine,nScaleBits)  #leading zeroes don't depend on nMantBits
-    mdctLinesMS *= (1<<overallScale)
-
-    # compute the mantissa bit allocations
-    # compute SMRs in side chain FFT
-    SMRs = CalcSMRs(timeSamplesMS, mdctLinesMS, overallScale, codingParams.sampleRate, sfBands)
     
     # perform bit allocation using SMR results
     bitAlloc, codingParams.bitReservoir = BitAlloc(bitBudget, maxMantBits, sfBands.nBands, sfBands.nLines, SMRs, codingParams.bitReservoir)
@@ -215,10 +230,10 @@ def EncodeMidSideChannel(dataLeft, dataRight, midOrSide, codingParams):
         lowLine = sfBands.lowerLine[iBand]
         highLine = sfBands.upperLine[iBand] + 1  # extra value is because slices don't include last value
         nLines= sfBands.nLines[iBand]
-        scaleLine = np.max(np.abs( mdctLinesMS[lowLine:highLine] ) )
+        scaleLine = np.max(np.abs( mdctLines[lowLine:highLine] ) )
         scaleFactor[iBand] = ScaleFactor(scaleLine, nScaleBits, bitAlloc[iBand])
         if bitAlloc[iBand]:
-            mantissa[iMant:iMant+nLines] = vMantissa(mdctLinesMS[lowLine:highLine],scaleFactor[iBand], nScaleBits, bitAlloc[iBand])
+            mantissa[iMant:iMant+nLines] = vMantissa(mdctLines[lowLine:highLine],scaleFactor[iBand], nScaleBits, bitAlloc[iBand])
             iMant += nLines
     # end of loop over scale factor bands
 
