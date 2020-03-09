@@ -329,6 +329,10 @@ def CalcSMRs(data, MDCTdata, MDCTscale, sampleRate, sfBands):
         current_band_SMRs = SMR_lines[int(lowerLine[i]):int(upperLine[i])+1]
         SMR_bands[i] = np.max(current_band_SMRs)
     
+#     fig_w = 12
+#     fig_h = 6
+    
+    
 #     plt.figure(figsize = (fig_w,fig_h))
 #     MDCT_freqs = np.arange(0, fs/2, fs/N) + 0.5
 #     mask_freqs = np.arange(0, fs/2, fs/N)

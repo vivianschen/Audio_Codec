@@ -66,8 +66,8 @@ def BitAlloc(bitBudget, maxMantBits, nBands, nLines, SMR, bitReservoir):
     
     allocateBits = True
     bits_used = 0
-    threshold = -12
-    maxBitBudget = 8000
+    threshold = -18
+    maxBitBudget = 10000
 
     # first pass allocation
     
