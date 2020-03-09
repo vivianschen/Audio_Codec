@@ -57,6 +57,9 @@ def Encode(data,codingParams):
     
     # Check if we want MID SIDE Encoding or not
     codingParams.use_MS = MidSideCorrelation(data[0], data[1], codingParams)
+    
+    codingParams.use_MS = 1
+    
             
     if codingParams.use_MS == 0:    
         # loop over L and R channels and separately encode each one

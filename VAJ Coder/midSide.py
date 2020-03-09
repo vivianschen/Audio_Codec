@@ -22,7 +22,7 @@ def MidSideCorrelation(dataLeft, dataRight, codingParams):
     # check whether to use mid side coding or not
     
     # use MS coding 
-    if diff < 0.8*summ:
+    if diff < 0.9*summ:
         use_MS = 1 
     # don't use MS coding
     else:
