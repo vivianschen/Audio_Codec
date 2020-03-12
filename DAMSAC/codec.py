@@ -56,9 +56,8 @@ def Encode(data,codingParams):
     
     
     # Check if we want MID SIDE Encoding or not
-    codingParams.use_MS = MidSideCorrelation(data[0], data[1], codingParams)
-    
-    codingParams.use_MS = 1
+    #codingParams.use_MS = MidSideCorrelation(data[0], data[1], codingParams)
+    codingParams.use_MS = 1 # using MS coding always to avoid clicks and pops when changing between MS and non-MS coding
     
             
     if codingParams.use_MS == 0:    
